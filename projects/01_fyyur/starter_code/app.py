@@ -28,9 +28,6 @@ db = SQLAlchemy(app)
 
 migrate = Migrate(app, db)
 
-# TODO: connect to a local postgresql database
-# DONE: database connection is included in config table
-
 #----------------------------------------------------------------------------#
 # Models.
 #----------------------------------------------------------------------------#
@@ -71,7 +68,7 @@ class Venue(db.Model):
     def __repr__(self):
       return f'<id: {self.id}, name: {self.name}>'
 
-    # TODO: implement any missing fields, as a database migration using Flask-Migrate
+   
 
 class Artist(db.Model):
     __tablename__ = 'Artist'
@@ -132,11 +129,11 @@ def venues():
   data=[]
   # Get all possible locations by city and state
   # Question: Why does distinct not work for both columns?
-  venue_locations = db.session.query(Venue.city, Venue.state).distinct(Venue.city, Venue.state).order_by(Venue.city).all()
+  venue_locations = Venue.query.distinct(Venue.city, Venue.state).all()
   # Loop through each location and query for the according venues
   for location in venue_locations:
-      city = location[0]
-      state = location[1]
+      city = location.city
+      state = location.state
       location_data = {
         "city": city, 
         "state": state, 
@@ -187,14 +184,13 @@ def show_venue(venue_id):
   else:
     #get name of genres
     genres = [ genre.name for genre in venue.genres ]
-    #get all shows of the artist
-    shows = db.session.query(Show).filter_by(venue_id=venue_id)
     #get current date + time
     current_time = datetime.now()
     #filter fo past shows                               
-    past_shows = shows.filter(Show.time < current_time).all()
-    #filter for upcoming shows   
-    upcoming_shows = shows.filter(Show.time > current_time).all() 
+    past_shows = db.session.query(Show).join(Venue).filter(venue_id==Show.venue_id).filter(Show.time < current_time).all()
+    #filter for upcoming shows
+    upcoming_shows = db.session.query(Show).join(Venue).filter(venue_id==Show.venue_id).filter(Show.time > current_time).all()
+    
     data={
       "id": venue.id,
       "name": venue.name,
@@ -214,7 +210,7 @@ def show_venue(venue_id):
         show_data = {
           "venue_id": show.artist.id,
           "venue_name": show.artist.name,
-          "venue_image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80",
+          "venue_image_link": show.artist.image_link,
           "start_time" : str(show.time),
         }
         data["past_shows"].append(show_data)
@@ -223,7 +219,7 @@ def show_venue(venue_id):
         show_data = {
           "venue_id": show.artist.id,
           "venue_name": show.artist.name,
-          "venue_image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80",
+          "venue_image_link": show.artist.image_link,
           "start_time" : str(show.time),
         }
         data["upcoming_shows"].append(show_data)
@@ -407,9 +403,9 @@ def show_artist(artist_id):
     # get current date + time
     current_time = datetime.now()
     # filter fo past shows                              
-    past_shows = shows.filter(Show.time < current_time).all()
-    # filter for upcoming shows     
-    upcoming_shows = shows.filter(Show.time > current_time).all() 
+    past_shows = db.session.query(Show).join(Venue).filter(artist_id==Show.artist_id).filter(Show.time < current_time).all()
+    #filter for upcoming shows
+    upcoming_shows = db.session.query(Show).join(Venue).filter(artist_id==Show.artist_id).filter(Show.time > current_time).all()
     #Create data
     data={
       "id": artist.id,
@@ -430,7 +426,7 @@ def show_artist(artist_id):
         show_data = {
           "venue_id": show.venue.id,
           "venue_name": show.venue.name,
-          "venue_image_link": "https://images.unsplash.com/photo-1543900694-133f37abaaa5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=400&q=60",
+          "venue_image_link": show.venue.image_link,
           "start_time" : str(show.time),
         }
         data["past_shows"].append(show_data)
@@ -439,7 +435,7 @@ def show_artist(artist_id):
         show_data = {
           "venue_id": show.venue.id,
           "venue_name": show.venue.name,
-          "venue_image_link": "https://images.unsplash.com/photo-1543900694-133f37abaaa5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=400&q=60",
+          "venue_image_link": show.venue.image_link,
           "start_time" : str(show.time),
         }
         data["upcoming_shows"].append(show_data)
@@ -588,7 +584,7 @@ def shows():
     "venue_name": show.venue.name,
     "artist_id": show.artist.id,
     "artist_name": show.artist.name,
-    "artist_image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80",
+    "artist_image_link": show.artist.image_link,
     "start_time": str(show.time),
     }
     data.append(show_data)
